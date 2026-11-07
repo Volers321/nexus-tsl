@@ -65,6 +65,16 @@ Typowe narzędzia dla branży TSL rozwiązują pojedyncze wycinki procesu. W pra
 | 18 | `route_optimizer.py` | Trasy wielopunktowe (najbliższy sąsiad + 2-opt), ETA |
 | 19 | `predictive_maintenance.py` | Ryzyko awarii pojazdu, blokada kursu przy wysokim ryzyku |
 
+## Demo online
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Volers321/nexus-tsl)
+
+Kliknij przycisk, zaloguj się na Render (darmowe konto, bez karty) i zatwierdź. Po kilku minutach dostaniesz adres `https://nexus-tsl-xxxx.onrender.com`:
+- `/` – panel do uruchamiania zleceń,
+- `/docs` – interaktywna dokumentacja API.
+
+Darmowa instancja usypia się po 15 minutach bez ruchu, więc pierwsze wejście trwa ok. 30–60 s. Dane demo znikają przy restarcie.
+
 ## Szybki start
 
 ```bash

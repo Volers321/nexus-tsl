@@ -1,0 +1,15 @@
+# Blueprint Render - darmowe demo NexusTSL.
+# Instancja free usypia się po 15 min bez ruchu; pierwsze wejście budzi ją ok. 30-60 s.
+services:
+  - type: web
+    name: nexus-tsl
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NEXUS_LLM_PROVIDER
+        value: offline
+      - key: NEXUS_DB_PATH
+        value: /tmp/nexus.db

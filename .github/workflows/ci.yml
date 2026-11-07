@@ -19,3 +19,15 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check src tests
       - run: pytest -q
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t nexus-tsl .
+      - name: Smoke test (port jak na Render)
+        run: |
+          docker run -d --name ntsl -e PORT=10000 -p 10000:10000 nexus-tsl
+          for i in $(seq 1 20); do curl -fs localhost:10000/health && break; sleep 1; done
+          curl -fs localhost:10000/health
+          curl -fs localhost:10000/ | grep -q NexusTSL
