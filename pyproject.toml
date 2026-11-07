@@ -25,6 +25,9 @@ nexus-demo = "nexus_tsl.demo:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+nexus_tsl = ["static/*.html"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]

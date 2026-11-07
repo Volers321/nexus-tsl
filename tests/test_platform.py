@@ -42,6 +42,7 @@ def test_rejected_cargo_stops_flow():
 def test_api_smoke():
     c = TestClient(app)
     assert c.get("/health").json()["modules"] == 19
+    assert "NexusTSL" in c.get("/").text
     r = c.post("/orders/run", json={"text": SAMPLE_ORDER})
     assert r.status_code == 200
     ecmr_id = r.json()["shipment"]["documents"]["ecmr"]

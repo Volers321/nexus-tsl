@@ -5,8 +5,10 @@ Dokumentacja interaktywna: http://localhost:8000/docs
 from __future__ import annotations
 
 from dataclasses import asdict
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from .core.geo import CITIES, road_km
@@ -41,6 +43,14 @@ class ComplianceIn(BaseModel):
     week_drive_h: float = 0
     prev_week_drive_h: float = 0
     day: list[ActivityIn]
+
+
+STATIC = Path(__file__).parent / "static"
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def panel() -> str:
+    return (STATIC / "index.html").read_text(encoding="utf-8")
 
 
 @app.get("/health")

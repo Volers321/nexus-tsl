@@ -1,6 +1,31 @@
 # NexusTSL 🚛🤖
 
+[![CI](https://github.com/Volers321/nexus-tsl/actions/workflows/ci.yml/badge.svg)](https://github.com/Volers321/nexus-tsl/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12%20%7C%203.13-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 **Zintegrowana platforma AI dla transportu, spedycji i logistyki.** Jeden przepływ danych od maila ze zleceniem do faktury i raportu ESG, realizowany przez 19 współpracujących modułów.
+
+---
+
+## O projekcie
+
+NexusTSL to otwarty, modułowy prototyp systemu dla firm spedycyjnych, przewoźników i operatorów magazynów. Zamiast kilkunastu osobnych narzędzi, z których każde wymaga przepisywania tych samych danych, platforma prowadzi zlecenie przez cały cykl życia w jednym miejscu:
+
+- **Przyjęcie zlecenia** – AI wyciąga z maila trasę, wagę, palety, wartość i referencję.
+- **Planowanie** – wybór przewoźnika, kontrola stanu technicznego pojazdu, trasa, czas pracy kierowcy, paliwo lub ładowanie e-ciężarówki.
+- **Dokumenty** – e-CMR z kryptograficznym łańcuchem podpisów i e-waybill z pełną historią stanów.
+- **Obiekt** – brama z rozpoznawaniem tablic, przydział ramp, zadania dla pracowników, inspekcja zdjęć ładunku.
+- **Realizacja i rozliczenie** – śledzenie z ETA, faktura wystawiana automatycznie po potwierdzonej dostawie.
+- **Zrównoważony rozwój** – emisje CO₂e każdej przesyłki i raport Scope 3 dla klientów.
+
+**Dla kogo:** dla zespołów IT w firmach TSL jako punkt wyjścia do własnego systemu, dla studentów i osób uczących się logistyki cyfrowej, dla każdego, kto chce zobaczyć, jak AI wpina się w realny proces przewozowy.
+
+**Status:** prototyp (v0.1). Logika działa i jest pokryta testami. Dane są trzymane w pamięci, a część obliczeń to świadome uproszczenia (patrz [Ograniczenia](#ograniczenia-świadome-uproszczenia) i [roadmapa](docs/ARCHITECTURE.md#roadmapa)).
+
+**Panel webowy:** po uruchomieniu API otwórz `http://localhost:8000/`, wklej zlecenie i zobacz jego przejście przez wszystkie moduły.
+
+![Panel NexusTSL](docs/panel.png)
 
 ---
 

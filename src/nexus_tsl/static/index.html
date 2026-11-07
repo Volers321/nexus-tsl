@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NexusTSL – panel</title>
+<style>
+  :root { --bg:#0f1720; --card:#17212c; --line:#253241; --text:#e6edf3; --muted:#8b9bb0; --accent:#f5b83d; --ok:#3fb950; --warn:#d29922; --bad:#f85149; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:20px 24px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; }
+  header h1 { margin:0; font-size:20px; } header span { color:var(--muted); }
+  main { display:grid; grid-template-columns: minmax(300px, 420px) 1fr; gap:20px; padding:20px 24px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  label { display:block; color:var(--muted); font-size:13px; margin:12px 0 4px; }
+  textarea, input { width:100%; background:#0b1118; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; }
+  textarea { min-height:190px; resize:vertical; }
+  button { margin-top:14px; width:100%; padding:11px; border:0; border-radius:8px; background:var(--accent); color:#111; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
+  .hint { color:var(--muted); font-size:12px; }
+  .summary { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:10px; margin-bottom:16px; }
+  .kpi { background:#0b1118; border:1px solid var(--line); border-radius:8px; padding:10px; }
+  .kpi b { display:block; font-size:18px; } .kpi small { color:var(--muted); }
+  ol.steps { list-style:none; margin:0; padding:0; }
+  ol.steps li { border-left:2px solid var(--line); padding:6px 0 10px 16px; position:relative; }
+  ol.steps li::before { content:""; position:absolute; left:-6px; top:12px; width:10px; height:10px; border-radius:50%; background:var(--accent); }
+  .mod { font-weight:600; } pre { margin:4px 0 0; white-space:pre-wrap; word-break:break-word; color:var(--muted); font-size:12px; }
+  .status { display:inline-block; padding:2px 8px; border-radius:99px; font-size:12px; font-weight:600; }
+  .s-invoiced { background:rgba(63,185,80,.15); color:var(--ok); } .s-exception { background:rgba(248,81,73,.15); color:var(--bad); }
+  .err { color:var(--bad); margin-top:10px; }
+</style>
+</head>
+<body>
+<header><h1>NexusTSL</h1><span>Zlecenie → 19 modułów → faktura i raport ESG</span></header>
+<main>
+  <section class="card">
+    <label for="order">Treść zlecenia (mail, czat, giełda)</label>
+    <textarea id="order">Dzień dobry,
+prosimy o transport z Poznań do Berlin, 12 t, 22 palet EUR.
+Towar: elektronika użytkowa, wartość 180000 EUR.
+Załadunek 06.11.2026. Nr zlecenia: PZ/2026/1105
+Nadawca: Elektro-Hurt Sp. z o.o.
+Odbiorca: TechMarkt GmbH</textarea>
+    <label for="load">Tagi zdjęć przy załadunku (oddzielone przecinkami)</label>
+    <input id="load" value="scratch">
+    <div class="hint">Możliwe: scratch, dent, wet, torn_wrap, broken_seal, crushed_pallet, leak. „broken_seal” zatrzymuje przewóz.</div>
+    <label for="deliv">Tagi zdjęć przy dostawie</label>
+    <input id="deliv" value="">
+    <button id="run">Uruchom przepływ</button>
+    <div id="err" class="err"></div>
+  </section>
+  <section class="card" id="out"><span class="hint">Wynik pojawi się tutaj.</span></section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const tags = (v) => v.split(",").map(s => s.trim()).filter(Boolean);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+$("run").onclick = async () => {
+  $("run").disabled = true; $("err").textContent = "";
+  try {
+    const lt = tags($("load").value), dt = tags($("deliv").value);
+    const res = await fetch("/orders/run", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ text: $("order").value, loading_photo_tags: lt.length ? [lt] : [], delivery_photo_tags: dt.length ? [dt] : [] })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    render(data);
+  } catch (e) { $("err").textContent = "Błąd: " + e.message; }
+  finally { $("run").disabled = false; }
+};
+
+function render({ shipment: s, steps }) {
+  const kpi = (label, val) => `<div class="kpi"><small>${label}</small><b>${esc(val ?? "–")}</b></div>`;
+  $("out").innerHTML = `
+    <div class="summary">
+      ${kpi("Status", "")}${kpi("Przewoźnik", s.carrier)}${kpi("Dystans", s.distance_km ? s.distance_km + " km" : null)}
+      ${kpi("Fracht", s.price_eur ? s.price_eur + " €" : null)}${kpi("CO₂e", s.co2e_kg != null ? s.co2e_kg + " kg" : null)}
+    </div>
+    <ol class="steps">${steps.map(st => `<li><div class="mod">${esc(st.module)}</div><pre>${esc(JSON.stringify(st.result, null, 1))}</pre></li>`).join("")}</ol>`;
+  $("out").querySelector(".kpi b").innerHTML = `<span class="status s-${esc(s.status)}">${esc(s.status)}</span>`;
+}
+</script>
+</body>
+</html>
