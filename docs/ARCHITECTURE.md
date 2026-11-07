@@ -59,13 +59,22 @@ flowchart TB
 
 ## Roadmapa
 
-- [ ] Trwałość: PostgreSQL + SQLAlchemy, migracje Alembic
-- [ ] Szyna: NATS/Kafka zamiast in-memory, outbox pattern
-- [ ] Routing: integracja OSRM (docker) i macierze odległości
+Zrobione w v0.2:
+- [x] Trwałość: SQLite (magazyn dokumentowy, `core/storage.py`), stan etapów przeżywa restart
+- [x] Przepływ etapami: `book → load → ping → deliver` z kontrolą kolejności
+- [x] Routing: klient OSRM z buforowaniem i fallbackiem (`docs/OSRM.md`)
+- [x] KSeF: eksport faktury FA(3), zgodny z oficjalnym XSD
+- [x] Inspekcja: detektor na multimodalnym modelu Claude za interfejsem `Detector`
+- [x] Aplikacja kierowcy (PWA)
+- [x] Ewaluacja intake: zestaw rozwojowy + kontrolny, workflow z modelem (`evals/`)
+
+Dalej:
+- [ ] Uwierzytelnianie (OAuth2/OIDC) i role: spedytor, przewoźnik, kierowca, magazyn, klient
+- [ ] PostgreSQL + SQLAlchemy/Alembic, szyna NATS/Kafka z outbox pattern
+- [ ] Wysyłka do KSeF (API 2.0, środowisko testowe), odbiór UPO
 - [ ] Optymalizacja: OR-Tools VRP z oknami czasowymi i ładownością
 - [ ] e-CMR: podpis kwalifikowany eIDAS, format zgodny z eFTI
-- [ ] KSeF: eksport faktury w schemacie FA(3)
-- [ ] Inspekcja: detektor YOLO / multimodalny LLM za interfejsem `Detector`
+- [ ] Geokodowanie adresów (Nominatim) zamiast słownika miast
 - [ ] Tachograf: import plików DDD
-- [ ] Panel webowy (React) i aplikacja kierowcy (PWA)
-- [ ] Uwierzytelnianie (OAuth2/OIDC) i role: spedytor, przewoźnik, kierowca, magazyn, klient
+- [ ] Zestaw oznaczonych zdjęć uszkodzeń i ewaluacja modułu wizyjnego
+- [ ] Tryb offline aplikacji kierowcy z kolejką wysyłek (Background Sync)

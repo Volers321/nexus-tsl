@@ -98,7 +98,7 @@ def get_router() -> Router:
     return OSRMRouter(url) if url else Router()
 
 
-# Kilka punktów referencyjnych do demo i testów.
+# Punkty referencyjne do demo i testów. W produkcji: geokodowanie (Nominatim, HERE, Google).
 CITIES = {
     "warszawa": Location("Warszawa", 52.2297, 21.0122),
     "poznan": Location("Poznań", 52.4064, 16.9252),
@@ -107,8 +107,32 @@ CITIES = {
     "krakow": Location("Kraków", 50.0647, 19.9450),
     "lodz": Location("Łódź", 51.7592, 19.4560),
     "katowice": Location("Katowice", 50.2649, 19.0238),
+    "szczecin": Location("Szczecin", 53.4285, 14.5528),
+    "bydgoszcz": Location("Bydgoszcz", 53.1235, 18.0084),
+    "lublin": Location("Lublin", 51.2465, 22.5684),
+    "rzeszow": Location("Rzeszów", 50.0412, 21.9991),
+    "bialystok": Location("Białystok", 53.1325, 23.1688),
     "berlin": Location("Berlin", 52.5200, 13.4050, "DE"),
+    "hamburg": Location("Hamburg", 53.5511, 9.9937, "DE"),
     "dortmund": Location("Dortmund", 51.5136, 7.4653, "DE"),
+    "monachium": Location("Monachium", 48.1351, 11.5820, "DE"),
+    "lipsk": Location("Lipsk", 51.3397, 12.3731, "DE"),
     "praga": Location("Praga", 50.0755, 14.4378, "CZ"),
+    "wieden": Location("Wiedeń", 48.2082, 16.3738, "AT"),
+    "budapeszt": Location("Budapeszt", 47.4979, 19.0402, "HU"),
+    "wilno": Location("Wilno", 54.6872, 25.2797, "LT"),
     "tallinn": Location("Tallinn", 59.4370, 24.7536, "EE"),
+    "rotterdam": Location("Rotterdam", 51.9244, 4.4777, "NL"),
+    "mediolan": Location("Mediolan", 45.4642, 9.1900, "IT"),
+    "paryz": Location("Paryż", 48.8566, 2.3522, "FR"),
+}
+
+# Nazwy obce i warianty pisowni -> klucz w CITIES (porównywane po usunięciu diakrytyków).
+CITY_ALIASES = {
+    "warsaw": "warszawa", "warschau": "warszawa", "posen": "poznan", "breslau": "wroclaw",
+    "danzig": "gdansk", "cracow": "krakow", "krakau": "krakow", "stettin": "szczecin",
+    "munich": "monachium", "munchen": "monachium", "muenchen": "monachium", "leipzig": "lipsk",
+    "prague": "praga", "prag": "praga", "praha": "praga", "vienna": "wieden", "wien": "wieden",
+    "budapest": "budapeszt", "vilnius": "wilno", "milan": "mediolan", "milano": "mediolan",
+    "paris": "paryz",
 }
