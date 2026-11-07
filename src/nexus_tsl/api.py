@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import base64
 import binascii
+import logging
 import os
+import sqlite3
 from dataclasses import asdict
 from pathlib import Path
 
@@ -35,10 +37,19 @@ app = FastAPI(
     version="0.2.0",
     description="Zintegrowana platforma AI dla transportu, spedycji i logistyki - 19 modułów w jednym przepływie.",
 )
+def _open_store() -> Store:
+    path = os.getenv("NEXUS_DB_PATH", "nexus.db")
+    try:
+        return Store(path)
+    except sqlite3.OperationalError as e:   # np. brak prawa zapisu w kontenerze
+        logging.getLogger(__name__).warning("Nie mogę otworzyć bazy %s (%s) - dane tylko w pamięci", path, e)
+        return Store(":memory:")
+
+
 platform = NexusPlatform(
     llm=get_provider(),
     workers=sample_workers(),
-    store=Store(os.getenv("NEXUS_DB_PATH", "nexus.db")),
+    store=_open_store(),
     router=get_router(),
     detector=get_detector(),
 )

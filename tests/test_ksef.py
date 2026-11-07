@@ -40,7 +40,9 @@ def test_domestic_invoice_has_23_vat(delivered):
 @pytest.mark.skipif(not os.getenv("NEXUS_FA3_XSD"), reason="ustaw NEXUS_FA3_XSD=ścieżka/do/schemat.xsd")
 def test_validates_against_official_xsd(delivered, tmp_path):
     lxml = pytest.importorskip("lxml.etree")
-    schema = lxml.XMLSchema(lxml.parse(os.environ["NEXUS_FA3_XSD"]))
+    # oficjalny schemat importuje typy z crd.gov.pl - zezwalamy na ich pobranie
+    parser = lxml.XMLParser(no_network=False, resolve_entities=False)
+    schema = lxml.XMLSchema(lxml.parse(os.environ["NEXUS_FA3_XSD"], parser))
     inv, s = delivered
     for variant in (inv, dict(inv, vat_rate=0.23)):
         doc = lxml.fromstring(invoice_xml(variant, s).encode())

@@ -169,3 +169,10 @@ def test_driver_pwa_assets(client):
     assert client.get("/driver/manifest.webmanifest").json()["start_url"] == "/driver"
     assert client.get("/driver/sw.js").headers["content-type"].startswith("text/javascript")
     assert client.get("/driver/icon.svg").status_code == 200
+
+
+def test_api_survives_unwritable_db(monkeypatch):
+    import nexus_tsl.api as api
+
+    monkeypatch.setenv("NEXUS_DB_PATH", "/nie/istnieje/katalog/nexus.db")
+    assert api._open_store().path == ":memory:"
