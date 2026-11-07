@@ -31,3 +31,17 @@ jobs:
           for i in $(seq 1 20); do curl -fs localhost:10000/health && break; sleep 1; done
           curl -fs localhost:10000/health
           curl -fs localhost:10000/ | grep -q NexusTSL
+
+  ksef-xsd:
+    runs-on: ubuntu-latest
+    continue-on-error: true   # zależy od dostępności serwera crd.gov.pl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - name: Pobierz oficjalny schemat FA(3)
+        run: curl -fsSL --retry 3 -o /tmp/schemat.xsd https://crd.gov.pl/wzor/2025/06/25/13775/schemat.xsd
+      - name: Walidacja faktur względem XSD
+        run: NEXUS_FA3_XSD=/tmp/schemat.xsd pytest -q tests/test_ksef.py -rs

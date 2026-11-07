@@ -3,7 +3,25 @@ services:
     build: .
     ports:
       - "8000:8000"
+    environment:
+      NEXUS_DB_PATH: /data/nexus.db
+      NEXUS_OSRM_URL: ${NEXUS_OSRM_URL:-}
     env_file:
       - path: .env
         required: false
+    volumes:
+      - nexus-data:/data
     restart: unless-stopped
+
+  # Własny serwer tras: docker compose --profile osrm up  (przygotowanie danych: docs/OSRM.md)
+  osrm:
+    profiles: ["osrm"]
+    image: osrm/osrm-backend
+    command: osrm-routed --algorithm mld /data/poland-latest.osrm
+    volumes:
+      - ./osrm-data:/data:ro
+    ports:
+      - "5000:5000"
+
+volumes:
+  nexus-data:

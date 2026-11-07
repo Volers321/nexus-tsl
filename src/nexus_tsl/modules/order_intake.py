@@ -59,7 +59,7 @@ def parse_rules(text: str) -> dict:
     m = re.search(r"(?:ref|nr zlecenia|order)[.:#\s]*([a-z0-9/-]{3,})", t)
     if m:
         out["reference"] = m.group(1).upper()
-    m = re.search(r"(?:towar|goods)[:\s]+([^\n,.]+)", t)
+    m = re.search(r"(?:towar|goods)[:\s]+([^\n,.]+)", text, re.I)
     if m:
         out["goods_description"] = m.group(1).strip()
     m = re.search(r"(?:nadawca|shipper)[:\s]+([^\n,]+)", text, re.I)

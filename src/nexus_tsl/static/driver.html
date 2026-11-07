@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1720">
+<link rel="manifest" href="/driver/manifest.webmanifest">
+<link rel="icon" href="/driver/icon.svg">
+<link rel="apple-touch-icon" href="/driver/icon.svg">
+<title>NexusTSL Kierowca</title>
+<style>
+  :root { --bg:#0f1720; --card:#17212c; --line:#253241; --text:#e6edf3; --muted:#8b9bb0; --accent:#f5b83d; --ok:#3fb950; --bad:#f85149; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--text);
+         padding-bottom: env(safe-area-inset-bottom); }
+  header { position:sticky; top:0; z-index:2; background:var(--bg); padding:14px 16px; border-bottom:1px solid var(--line);
+           display:flex; align-items:center; gap:10px; }
+  header h1 { font-size:18px; margin:0; flex:1; }
+  header button { width:auto; margin:0; padding:8px 12px; background:transparent; color:var(--text); border:1px solid var(--line); }
+  main { padding:14px 16px; max-width:640px; margin:0 auto; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+  .row { display:flex; justify-content:space-between; gap:8px; align-items:center; }
+  .muted { color:var(--muted); font-size:14px; }
+  .big { font-size:18px; font-weight:600; }
+  .pill { display:inline-block; padding:2px 10px; border-radius:99px; font-size:13px; font-weight:600; background:#253241; }
+  .pill.in_transit { background:rgba(245,184,61,.18); color:var(--accent); }
+  .pill.assigned { background:rgba(88,166,255,.18); color:#58a6ff; }
+  .pill.invoiced, .pill.delivered { background:rgba(63,185,80,.18); color:var(--ok); }
+  .pill.exception { background:rgba(248,81,73,.18); color:var(--bad); }
+  button { width:100%; padding:14px; margin-top:12px; border:0; border-radius:10px; background:var(--accent); color:#111;
+           font:inherit; font-weight:700; cursor:pointer; }
+  button.secondary { background:#253241; color:var(--text); }
+  button:disabled { opacity:.55; }
+  input[type=text] { width:100%; padding:12px; border-radius:10px; border:1px solid var(--line); background:#0b1118; color:var(--text); font:inherit; }
+  label.file { display:block; text-align:center; padding:14px; border:1px dashed var(--line); border-radius:10px; margin-top:10px; cursor:pointer; }
+  label.file input { display:none; }
+  .thumbs { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .thumbs img { width:64px; height:64px; object-fit:cover; border-radius:8px; border:1px solid var(--line); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .chips label { padding:6px 10px; border:1px solid var(--line); border-radius:99px; font-size:14px; }
+  .chips input { margin-right:4px; }
+  canvas { width:100%; height:160px; background:#fff; border-radius:10px; margin-top:8px; touch-action:none; }
+  .toast { position:fixed; left:16px; right:16px; bottom:calc(16px + env(safe-area-inset-bottom)); padding:12px 14px;
+           border-radius:10px; background:#253241; display:none; z-index:5; pointer-events:none; }
+  .toast.err { background:#5a1d1d; } .toast.ok { background:#1d4a2a; }
+  .steps { font-size:13px; color:var(--muted); margin:6px 0 0; padding-left:18px; }
+  .bar { height:8px; background:#253241; border-radius:99px; overflow:hidden; margin-top:8px; }
+  .bar > div { height:100%; background:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Moje zlecenia</h1>
+  <button id="back" hidden>← Lista</button>
+</header>
+<main id="app"></main>
+<div class="toast" id="toast"></div>
+
+<script>
+const DAMAGE = { scratch:"rysa", dent:"wgniecenie", wet:"zamoczenie", torn_wrap:"rozdarta folia",
+                 broken_seal:"zerwana plomba", crushed_pallet:"zgnieciona paleta", leak:"wyciek" };
+const STATUS = { assigned:"do załadunku", at_gate:"na bramie", loading:"załadunek", in_transit:"w trasie",
+                 delivered:"dostarczone", invoiced:"rozliczone", exception:"problem", booked:"przyjęte", draft:"szkic" };
+const app = document.getElementById("app");
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function toast(msg, kind = "") {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.className = "toast " + kind; t.style.display = "block";
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 3500);
+}
+
+async function api(path, body) {
+  const res = await fetch(path, body ? { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) } : {});
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || `Błąd ${res.status}`);
+  return data;
+}
+
+// Zmniejsza zdjęcie z aparatu do max 1600 px (JPEG) - szybsze wysyłanie przez LTE.
+function shrink(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      resolve(c.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function photoPicker(id) {
+  return `
+    <label class="file">📷 Zrób lub dodaj zdjęcia
+      <input type="file" accept="image/*" capture="environment" multiple id="${id}-input"></label>
+    <div class="thumbs" id="${id}-thumbs"></div>
+    <div class="muted" style="margin-top:10px">Widoczne uszkodzenia:</div>
+    <div class="chips">${Object.entries(DAMAGE).map(([k, v]) =>
+      `<label><input type="checkbox" name="${id}-dmg" value="${k}">${v}</label>`).join("")}</div>`;
+}
+
+function bindPicker(id) {
+  const photos = [];
+  document.getElementById(`${id}-input`).onchange = async (e) => {
+    for (const f of e.target.files) {
+      try {
+        const b64 = await shrink(f);
+        photos.push(b64);
+        document.getElementById(`${id}-thumbs`).insertAdjacentHTML("beforeend", `<img src="${b64}" alt="">`);
+      } catch { toast("Nie udało się wczytać zdjęcia", "err"); }
+    }
+    e.target.value = "";
+  };
+  return () => {
+    const tags = [...document.querySelectorAll(`input[name=${id}-dmg]:checked`)].map(x => x.value);
+    const items = photos.map(b64 => ({ image_b64: b64, tags: [] }));
+    if (tags.length) (items[0] ||= { tags: [] }, items[0].tags = tags);
+    if (!items.length && tags.length) items.push({ tags });
+    return items;
+  };
+}
+
+function signaturePad(canvas) {
+  const ctx = canvas.getContext("2d");
+  let drawing = false, dirty = false;
+  const fit = () => { const r = canvas.getBoundingClientRect(); canvas.width = r.width * devicePixelRatio; canvas.height = r.height * devicePixelRatio;
+                      ctx.scale(devicePixelRatio, devicePixelRatio); ctx.lineWidth = 2.2; ctx.lineCap = "round"; ctx.strokeStyle = "#111"; };
+  fit();
+  const pos = (e) => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  canvas.onpointerdown = (e) => { drawing = true; dirty = true; canvas.setPointerCapture(e.pointerId); ctx.beginPath(); ctx.moveTo(...pos(e)); };
+  canvas.onpointermove = (e) => { if (drawing) { ctx.lineTo(...pos(e)); ctx.stroke(); } };
+  canvas.onpointerup = () => drawing = false;
+  return { isEmpty: () => !dirty, clear: () => { ctx.clearRect(0, 0, canvas.width, canvas.height); dirty = false; } };
+}
+
+// ---------------------------------------------------------------- widoki
+async function listView() {
+  document.getElementById("title").textContent = "Moje zlecenia";
+  document.getElementById("back").hidden = true;
+  app.innerHTML = `<div class="muted">Wczytywanie…</div>`;
+  try {
+    const all = await api("/shipments");
+    const active = all.filter(s => ["assigned", "in_transit"].includes(s.status));
+    const done = all.filter(s => !["assigned", "in_transit"].includes(s.status)).slice(0, 5);
+    const card = (s) => `
+      <div class="card" onclick="detailView('${esc(s.id)}')" style="cursor:pointer">
+        <div class="row"><span class="big">${esc(s.origin)} → ${esc(s.destination)}</span>
+          <span class="pill ${esc(s.status)}">${esc(STATUS[s.status] || s.status)}</span></div>
+        <div class="muted">${esc(s.reference || s.id)} · ${esc(s.goods)} · ${esc(s.weight_kg)} kg · ${esc(s.vehicle || "")}</div>
+      </div>`;
+    app.innerHTML = `
+      ${active.length ? active.map(card).join("") : `<div class="card muted">Brak aktywnych zleceń.</div>`}
+      <button class="secondary" id="demo">＋ Utwórz zlecenie demo</button>
+      ${done.length ? `<h3 class="muted" style="margin-top:22px">Ostatnio zakończone</h3>${done.map(card).join("")}` : ""}`;
+    document.getElementById("demo").onclick = createDemo;
+  } catch (e) { app.innerHTML = `<div class="card">Brak połączenia z serwerem. ${esc(e.message)}</div>`; }
+}
+
+async function createDemo() {
+  const routes = [["Poznań","Berlin"],["Warszawa","Kraków"],["Gdańsk","Łódź"],["Wrocław","Praga"],["Katowice","Dortmund"]];
+  const [a, b] = routes[Math.floor(Math.random() * routes.length)];
+  const t = (8 + Math.floor(Math.random() * 12));
+  const text = `Transport z ${a} do ${b}, ${t} t, ${t * 2} palet. Towar: AGD, wartość ${t * 9000} EUR. ` +
+               `Nr zlecenia: DEMO-${Date.now() % 100000}\nNadawca: Elektro-Hurt Sp. z o.o.\nOdbiorca: Magazyn ${b}`;
+  try { const r = await api("/orders/book", { text }); toast("Zlecenie przydzielone: " + r.shipment.carrier, "ok"); detailView(r.shipment.id); }
+  catch (e) { toast(e.message, "err"); }
+}
+
+async function detailView(id) {
+  document.getElementById("back").hidden = false;
+  app.innerHTML = `<div class="muted">Wczytywanie…</div>`;
+  let s;
+  try { s = await api(`/shipments/${encodeURIComponent(id)}`); }
+  catch (e) { toast(e.message, "err"); return listView(); }
+  document.getElementById("title").textContent = s.reference || s.id;
+  const head = `
+    <div class="card">
+      <div class="row"><span class="big">${esc(s.origin)} → ${esc(s.destination)}</span>
+        <span class="pill ${esc(s.status)}">${esc(STATUS[s.status] || s.status)}</span></div>
+      <div class="muted">${esc(s.shipper)} → ${esc(s.consignee)}</div>
+      <div class="muted">${esc(s.goods)} · ${esc(s.weight_kg)} kg · ${esc(s.pallets)} palet · ${esc(s.distance_km)} km</div>
+      <div class="muted">Pojazd ${esc(s.vehicle)} · ${esc(s.carrier)}</div>
+      ${s.progress != null ? `<div class="bar"><div style="width:${Math.round(s.progress * 100)}%"></div></div>
+         <div class="muted">Postęp ${Math.round(s.progress * 100)}% · ETA za ${Math.max(0, Math.round((s.eta_min - minutesSinceLoad(id))))} min</div>` : ""}
+    </div>`;
+
+  if (s.status === "assigned") {
+    app.innerHTML = head + `<div class="card"><div class="big">Załadunek</div>
+      <div class="muted">Sfotografuj ładunek i plombę. Zdjęcia trafią do e-CMR.</div>
+      ${photoPicker("load")}<button id="go">Potwierdź załadunek</button></div>`;
+    const collect = bindPicker("load");
+    document.getElementById("go").onclick = async (e) => {
+      e.target.disabled = true;
+      try {
+        const r = await api(`/shipments/${id}/load`, { photos: collect() });
+        const last = r.steps.find(x => x.module.startsWith("13"));
+        if (r.shipment.status === "in_transit") { store.set("load:" + id, Date.now()); toast("Załadowano. Szerokiej drogi!", "ok"); }
+        else toast((last && last.result.remark) || "Załadunek wstrzymany", "err");
+        detailView(id);
+      } catch (err) { toast(err.message, "err"); e.target.disabled = false; }
+    };
+  } else if (s.status === "in_transit") {
+    app.innerHTML = head + `
+      <div class="card"><div class="big">W trasie</div>
+        <button class="secondary" id="gps">📍 Wyślij moją pozycję</button>
+        <label class="muted" style="display:block;margin-top:10px"><input type="checkbox" id="auto"> wysyłaj automatycznie co 5 min</label></div>
+      <div class="card"><div class="big">Dostawa</div>
+        ${photoPicker("del")}
+        <div class="muted" style="margin-top:12px">Odbierający</div>
+        <input type="text" id="signer" placeholder="Imię i nazwisko odbiorcy" value="">
+        <div class="muted" style="margin-top:10px">Podpis odbiorcy</div>
+        <canvas id="sig"></canvas>
+        <button class="secondary" id="clear" style="margin-top:6px">Wyczyść podpis</button>
+        <button id="deliver">Potwierdź dostawę</button></div>`;
+    const collect = bindPicker("del");
+    const pad = signaturePad(document.getElementById("sig"));
+    document.getElementById("clear").onclick = pad.clear;
+    document.getElementById("gps").onclick = () => sendPosition(id, true);
+    const auto = document.getElementById("auto");
+    auto.checked = !!store.get("auto:" + id, false);
+    auto.onchange = () => { store.set("auto:" + id, auto.checked); schedule(id); };
+    schedule(id);
+    document.getElementById("deliver").onclick = async (e) => {
+      const signer = document.getElementById("signer").value.trim();
+      if (!signer) return toast("Wpisz imię i nazwisko odbiorcy", "err");
+      if (pad.isEmpty()) return toast("Brak podpisu odbiorcy", "err");
+      e.target.disabled = true;
+      try {
+        const r = await api(`/shipments/${id}/deliver`, { photos: collect(), signer });
+        store.set("auto:" + id, false); schedule(null);
+        const inv = r.steps.find(x => x.module.startsWith("17"));
+        toast(`Dostarczono. Faktura ${inv ? inv.result.id : ""} wystawiona.`, "ok");
+        detailView(id);
+      } catch (err) { toast(err.message, "err"); e.target.disabled = false; }
+    };
+  } else {
+    const docs = s.documents || {};
+    app.innerHTML = head + `<div class="card"><div class="big">Dokumenty</div>
+      ${docs.ecmr ? `<a href="/documents/ecmr/${esc(docs.ecmr)}" target="_blank" style="color:var(--accent)">e-CMR ${esc(docs.ecmr)}</a><br>` : ""}
+      ${docs.invoice ? `<a href="/invoices/${esc(docs.invoice)}/ksef.xml" target="_blank" style="color:var(--accent)">Faktura KSeF ${esc(docs.invoice)}</a>` : ""}
+      <ul class="steps">${(s.history || []).map(h => { const [st, ...rest] = String(h[1]).split(" ");
+        return `<li>${esc(new Date(h[0]).toLocaleString("pl-PL"))} · ${esc(STATUS[st] || st)} ${esc(rest.join(" "))}</li>`; }).join("")}</ul></div>`;
+  }
+}
+
+function minutesSinceLoad(id) {
+  const t = store.get("load:" + id, null);
+  return t ? (Date.now() - t) / 60000 : 0;
+}
+
+let timer = null;
+function schedule(id) {
+  clearInterval(timer); timer = null;
+  if (id && store.get("auto:" + id, false)) timer = setInterval(() => sendPosition(id, false), 5 * 60 * 1000);
+}
+
+function sendPosition(id, loud) {
+  if (!navigator.geolocation) return toast("Telefon nie udostępnia lokalizacji", "err");
+  navigator.geolocation.getCurrentPosition(async (p) => {
+    try {
+      const r = await api(`/shipments/${id}/ping`, { lat: p.coords.latitude, lon: p.coords.longitude, minute: minutesSinceLoad(id) });
+      if (loud) { toast(`Pozycja wysłana · postęp ${Math.round(r.steps[0].result.progress * 100)}%`, "ok"); detailView(id); }
+    } catch (e) { if (loud) toast(e.message, "err"); }
+  }, (e) => loud && toast("Brak dostępu do lokalizacji: " + e.message, "err"), { enableHighAccuracy: true, timeout: 15000 });
+}
+
+document.getElementById("back").onclick = () => { schedule(null); listView(); };
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/driver/sw.js", { scope: "/driver" }).catch(() => {});
+listView();
+</script>
+</body>
+</html>

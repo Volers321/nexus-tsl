@@ -93,3 +93,40 @@ class Shipment:
     def set_status(self, status: ShipmentStatus, note: str = "") -> None:
         self.status = status
         self.history.append((utcnow().isoformat(), f"{status.value} {note}".strip()))
+
+
+# --------------------------------------------------------------------------- #
+# Serializacja (zapis w bazie / API)
+# --------------------------------------------------------------------------- #
+def to_dict(obj) -> dict:
+    """dataclass -> dict z enumami zamienionymi na wartości."""
+    from dataclasses import asdict
+
+    def fix(v):
+        if isinstance(v, Enum):
+            return v.value
+        if isinstance(v, dict):
+            return {k: fix(x) for k, x in v.items()}
+        if isinstance(v, (list, tuple)):
+            return [fix(x) for x in v]
+        return v
+
+    return fix(asdict(obj))
+
+
+def location_from_dict(d: dict) -> Location:
+    return Location(d["name"], float(d["lat"]), float(d["lon"]), d.get("country", "PL"))
+
+
+def vehicle_from_dict(d: dict) -> Vehicle:
+    return Vehicle(**{**d, "type": VehicleType(d["type"])})
+
+
+def shipment_from_dict(d: dict) -> Shipment:
+    return Shipment(**{
+        **d,
+        "origin": location_from_dict(d["origin"]),
+        "destination": location_from_dict(d["destination"]),
+        "status": ShipmentStatus(d["status"]),
+        "history": [tuple(h) for h in d.get("history", [])],
+    })

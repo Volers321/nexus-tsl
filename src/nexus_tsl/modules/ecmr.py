@@ -42,9 +42,18 @@ def _digest(payload: dict) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
+def ecmr_from_dict(d: dict) -> ECMR:
+    return ECMR(d["id"], d["shipment_id"], d["data"], [Signature(**x) for x in d.get("signatures", [])])
+
+
 class ECMRService:
     def __init__(self) -> None:
         self.docs: dict[str, ECMR] = {}
+
+    def restore(self, d: dict) -> ECMR:
+        doc = ecmr_from_dict(d)
+        self.docs[doc.id] = doc
+        return doc
 
     def create(self, s: Shipment) -> ECMR:
         data = {

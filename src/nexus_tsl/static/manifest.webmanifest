@@ -1,0 +1,15 @@
+{
+  "name": "NexusTSL Kierowca",
+  "short_name": "Kierowca",
+  "description": "Zlecenia, zdjęcia ładunku i podpis e-CMR w telefonie kierowcy.",
+  "start_url": "/driver",
+  "scope": "/driver",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1720",
+  "theme_color": "#0f1720",
+  "lang": "pl",
+  "icons": [
+    { "src": "/driver/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

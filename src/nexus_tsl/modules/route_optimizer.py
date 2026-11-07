@@ -6,6 +6,7 @@ podmień na OR-Tools / VROOM, zachowując interfejs `optimize`.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable
 
 from ..core.geo import road_km
 from ..core.models import Location
@@ -18,19 +19,19 @@ class RoutePlan:
     drive_hours: float
 
 
-def _length(route: list[Location]) -> float:
-    return sum(road_km(a, b) for a, b in zip(route, route[1:]))
-
-
 class RouteOptimizer:
-    def __init__(self, avg_speed_kmh: float = 70.0) -> None:
+    def __init__(self, avg_speed_kmh: float = 70.0, distance: Callable[[Location, Location], float] = road_km) -> None:
         self.avg_speed_kmh = avg_speed_kmh
+        self.dist = distance
+
+    def _length(self, route: list[Location]) -> float:
+        return sum(self.dist(a, b) for a, b in zip(route, route[1:]))
 
     def optimize(self, depot: Location, stops: list[Location], return_to_depot: bool = False) -> RoutePlan:
         remaining = list(stops)
         route = [depot]
         while remaining:
-            nxt = min(remaining, key=lambda s: road_km(route[-1], s))
+            nxt = min(remaining, key=lambda s: self.dist(route[-1], s))
             route.append(nxt)
             remaining.remove(nxt)
         if return_to_depot:
@@ -43,10 +44,10 @@ class RouteOptimizer:
             for i in range(1, end - 1):
                 for j in range(i + 1, end):
                     candidate = route[:i] + route[i : j + 1][::-1] + route[j + 1 :]
-                    if _length(candidate) + 1e-9 < _length(route):
+                    if self._length(candidate) + 1e-9 < self._length(route):
                         route, improved = candidate, True
-        km = round(_length(route), 1)
+        km = round(self._length(route), 1)
         return RoutePlan(stops=route, total_km=km, drive_hours=round(km / self.avg_speed_kmh, 2))
 
     def eta_hours(self, a: Location, b: Location, traffic_factor: float = 1.0) -> float:
-        return round(road_km(a, b) / self.avg_speed_kmh * traffic_factor, 2)
+        return round(self.dist(a, b) / self.avg_speed_kmh * traffic_factor, 2)

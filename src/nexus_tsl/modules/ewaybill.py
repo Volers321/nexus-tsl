@@ -36,6 +36,11 @@ class EWaybillService:
     def __init__(self) -> None:
         self.docs: dict[str, EWaybill] = {}
 
+    def restore(self, d: dict) -> EWaybill:
+        wb = EWaybill(**d)
+        self.docs[wb.id] = wb
+        return wb
+
     def create(self, s: Shipment) -> EWaybill:
         wb = EWaybill(
             id=new_id("EWB"),
